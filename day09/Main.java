@@ -50,11 +50,13 @@ public class Main {
 						}
 						break;
 				}
-				printPositions();
-				System.out.println();
-				long start = System.currentTimeMillis();
-				while (System.currentTimeMillis() - start < 100) {
-				}
+				/*
+				 * printPositions();
+				 * System.out.println();
+				 * long start = System.currentTimeMillis();
+				 * while (System.currentTimeMillis() - start < 100) {
+				 * }
+				 */
 			}
 			System.out.println(tailPositions.size());
 		} catch (FileNotFoundException e) {
@@ -74,21 +76,37 @@ public class Main {
 			return;
 		}
 
-		if (headPosition.getX() - tailPosition.getX() >= 2) {
-			tailPosition.setX(headPosition.getX() - 1);
-			tailPosition.setY(headPosition.getY());
+		while (headPosition.getX() - tailPosition.getX() >= 2) { // tail is left
+			tailPosition.setX(tailPosition.getX() + 1);
+			if (tailPosition.getY() != headPosition.getY()) {
+				int direction = (headPosition.getY() - tailPosition.getY())
+						/ Math.abs(headPosition.getY() - tailPosition.getY());
+				tailPosition.setY(tailPosition.getY() + direction);
+			}
 		}
-		if (headPosition.getX() - tailPosition.getX() <= -2) {
-			tailPosition.setX(headPosition.getX() + 1);
-			tailPosition.setY(headPosition.getY());
+		while (headPosition.getX() - tailPosition.getX() <= -2) { // tail is right
+			tailPosition.setX(tailPosition.getX() - 1);
+			if (tailPosition.getY() != headPosition.getY()) {
+				int direction = (headPosition.getY() - tailPosition.getY())
+						/ Math.abs(headPosition.getY() - tailPosition.getY());
+				tailPosition.setY(tailPosition.getY() + direction);
+			}
 		}
-		if (headPosition.getY() - tailPosition.getY() >= 2) {
-			tailPosition.setY(headPosition.getY() - 1);
-			tailPosition.setX(headPosition.getX());
+		while (headPosition.getY() - tailPosition.getY() >= 2) { // tail is down
+			tailPosition.setY(tailPosition.getY() + 1);
+			if (tailPosition.getX() != headPosition.getX()) {
+				int direction = (headPosition.getX() - tailPosition.getX())
+						/ Math.abs(headPosition.getX() - tailPosition.getX());
+				tailPosition.setX(tailPosition.getX() + direction);
+			}
 		}
-		if (headPosition.getY() - tailPosition.getY() <= -2) {
-			tailPosition.setY(headPosition.getY() + 1);
-			tailPosition.setX(headPosition.getX());
+		while (headPosition.getY() - tailPosition.getY() <= -2) { // tail is up
+			tailPosition.setY(tailPosition.getY() - 1);
+			if (tailPosition.getX() != headPosition.getX()) {
+				int direction = (headPosition.getX() - tailPosition.getX())
+						/ Math.abs(headPosition.getX() - tailPosition.getX());
+				tailPosition.setX(tailPosition.getX() + direction);
+			}
 		}
 
 		if (tailIndex == TAIL_LENGTH - 1)
