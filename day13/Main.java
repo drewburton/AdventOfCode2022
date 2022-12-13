@@ -10,24 +10,32 @@ public class Main {
 		// File f = new File("day13/test.txt");
 		File f = new File("day13/input.txt");
 		try (Scanner s = new Scanner(f)) {
-			int i = 1;
-			int sumIndeciesOfRightOrder = 0;
-			do {
-				String leftUnparsed = s.nextLine();
-				leftUnparsed = leftUnparsed.substring(1, leftUnparsed.length() - 1);
-				Packet left = parsePacket(leftUnparsed);
+			ArrayList<Packet> packets = new ArrayList<>();
+			while (s.hasNextLine()) {
+				String unparsed = s.nextLine();
+				if (unparsed.equals(""))
+					continue;
+				unparsed = unparsed.substring(1, unparsed.length() - 1);
+				packets.add(parsePacket(unparsed));
+			}
+			Packet two = parsePacket("[2]");
+			Packet six = parsePacket("[6]");
+			packets.add(two);
+			packets.add(six);
 
-				String rightUnparsed = s.nextLine();
-				rightUnparsed = rightUnparsed.substring(1, rightUnparsed.length() - 1);
-				Packet right = parsePacket(rightUnparsed);
-
-				if (inOrder(left, right) == 1) {
-					sumIndeciesOfRightOrder += i;
-					System.out.println(i);
-				}
-				i++;
-			} while (s.hasNextLine() && s.nextLine().equals(""));
-			System.out.println(sumIndeciesOfRightOrder);
+			packets.sort((p1, p2) -> inOrder(p2, p1));
+			packets.forEach((p) -> {
+				printPacket(p);
+				System.out.println();
+			});
+			int twoIndex = -1, sixIndex = -1;
+			for (int i = 0; i < packets.size(); i++) {
+				if (packets.get(i) == two)
+					twoIndex = i + 1;
+				if (packets.get(i) == six)
+					sixIndex = i + 1;
+			}
+			System.out.println(twoIndex * sixIndex);
 		} catch (FileNotFoundException e) {
 			System.out.println(e.getMessage());
 		}
@@ -70,35 +78,43 @@ public class Main {
 				current = current.parent;
 			}
 		}
+		if (startOfNumber != -1) {
+			Packet sub = new Packet();
+			sub.value = Integer.parseInt(unparsedInput.substring(startOfNumber, unparsedInput.length()));
+			sub.parent = current;
+			current.subLists.add(sub);
+		}
 		return packet;
 	}
 
 	public static int inOrder(Packet left, Packet right) {
+		Packet leftTemp = new Packet(left);
+		Packet rightTemp = new Packet(right);
 		int i = 0, j = 0;
-		while (i < left.subLists.size() && j < right.subLists.size()) {
-			if (left.subLists.get(i).value == -1 && right.subLists.get(j).value == -1) {
+		while (i < leftTemp.subLists.size() && j < rightTemp.subLists.size()) {
+			if (leftTemp.subLists.get(i).value == -1 && rightTemp.subLists.get(j).value == -1) {
 				// both lists
-				int solved = inOrder(left.subLists.get(i), right.subLists.get(j));
+				int solved = inOrder(leftTemp.subLists.get(i), rightTemp.subLists.get(j));
 				if (solved != 0)
 					return solved;
-			} else if (left.subLists.get(i).value != -1 && right.subLists.get(j).value != -1) {
+			} else if (leftTemp.subLists.get(i).value != -1 && rightTemp.subLists.get(j).value != -1) {
 				// both integers
-				if (left.subLists.get(i).value != right.subLists.get(j).value)
-					return Integer.compare(right.subLists.get(j).value, left.subLists.get(i).value);
+				if (leftTemp.subLists.get(i).value != rightTemp.subLists.get(j).value)
+					return Integer.compare(rightTemp.subLists.get(j).value, leftTemp.subLists.get(i).value);
 			} else {
 				// one integer
-				if (left.subLists.get(i).value != -1)
-					convertToList(left.subLists.get(i));
+				if (leftTemp.subLists.get(i).value != -1)
+					convertToList(leftTemp.subLists.get(i));
 				else
-					convertToList(right.subLists.get(j));
+					convertToList(rightTemp.subLists.get(j));
 				continue;
 			}
 			i++;
 			j++;
 		}
-		if (i >= left.subLists.size() && j >= right.subLists.size())
+		if (i >= leftTemp.subLists.size() && j >= rightTemp.subLists.size())
 			return 0;
-		return i >= left.subLists.size() ? 1 : -1; // if left runs out of items first it is in order
+		return i >= leftTemp.subLists.size() ? 1 : -1; // if leftTemp runs out of items first it is in order
 	}
 
 	public static void convertToList(Packet p) {
@@ -119,5 +135,15 @@ class Packet {
 		subLists = new ArrayList<>();
 		value = -1;
 		parent = null;
+	}
+
+	Packet(Packet p) {
+		subLists = new ArrayList<>();
+		for (Packet subP : p.subLists) {
+			subLists.add(new Packet(subP));
+		}
+		this.value = p.value;
+		if (parent != null)
+			this.parent = new Packet(p.parent);
 	}
 }
