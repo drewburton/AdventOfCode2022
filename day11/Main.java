@@ -2,7 +2,6 @@ package day11;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -15,18 +14,17 @@ import java.util.stream.Stream;
 
 public class Main {
 	public static void main(String... args) {
-		File f = new File("day11/test.txt");
-		// File f = new File("day11/input.txt");
+		// File f = new File("day11/test.txt");
+		File f = new File("day11/input.txt");
 		try (Scanner s = new Scanner(f)) {
 			ArrayList<Monkey> monkeys = parseMonkeys(s);
 			for (int round = 0; round < 10000; round++) {
 				for (int monkey = 0; monkey < monkeys.size(); monkey++) {
 					Monkey.throwItems(monkeys, monkeys.get(monkey));
 				}
-				System.out.println(round);
 			}
-			monkeys.sort((m1, m2) -> m2.numInspected.compareTo(m1.numInspected));
-			System.out.println(monkeys.get(0).numInspected.multiply(monkeys.get(1).numInspected));
+			monkeys.sort((m1, m2) -> Long.compare(m2.numInspected, m1.numInspected));
+			System.out.println(monkeys.get(0).numInspected * monkeys.get(1).numInspected);
 		} catch (FileNotFoundException e) {
 			System.out.println(e.getMessage());
 		}
@@ -37,41 +35,56 @@ public class Main {
 		while (true) {
 			s.nextLine();
 			// parse starting items
-			List<BigInteger> items = Stream.of(s.nextLine()
+			List<Long> items = Stream.of(s.nextLine()
 					.replace("  Starting items: ", "")
 					.split(", "))
-					.map(o -> BigInteger.valueOf(Integer.parseInt(o)))
+					.map(o -> Long.parseLong(o))
 					.collect(Collectors.toList());
 
 			// parse operation
 			Matcher matcher = Pattern.compile("Operation: new = (old|\\d+) (\\*|\\+) (old|\\d+)").matcher(s.nextLine());
-			Operation operation = (BigInteger old) -> BigInteger.ZERO;
+			Operation operation = (long old) -> 0;
 			if (matcher.find()) {
-				operation = (BigInteger old) -> {
-					BigInteger first;
-					if (matcher.group(1).equals("old")) {
-						first = old;
-					} else {
-						first = BigInteger.valueOf(Integer.parseInt(matcher.group(1)));
-					}
+				int first;
+				if (matcher.group(1).equals("old")) {
+					first = -1;
+				} else {
+					first = Integer.parseInt(matcher.group(1));
+				}
 
-					BigInteger second;
-					if (matcher.group(3).equals("old")) {
-						second = old;
-					} else {
-						second = BigInteger.valueOf(Integer.parseInt(matcher.group(3)));
-					}
+				int second;
+				if (matcher.group(3).equals("old")) {
+					second = -1;
+				} else {
+					second = Integer.parseInt(matcher.group(3));
+				}
 
-					switch (matcher.group(2)) {
-						case "*":
-							return first.multiply(second);
-						case "+":
-							return first.add(second);
-						default:
-							return BigInteger.ZERO;
-					}
-				};
+				switch (matcher.group(2)) {
+					case "*":
+						if (first == -1 && second == -1) {
+							operation = (long old) -> old * old;
+						} else if (first == -1) {
+							operation = (long old) -> old * second;
+						} else if (second == -1) {
+							operation = (long old) -> first * old;
+						} else {
+							operation = (long old) -> first * second;
+						}
+						break;
+					case "+":
+						if (first == -1 && second == -1) {
+							operation = (long old) -> old + old;
+						} else if (first == -1) {
+							operation = (long old) -> old + second;
+						} else if (second == -1) {
+							operation = (long old) -> first + old;
+						} else {
+							operation = (long old) -> first + second;
+						}
+						break;
+				}
 			}
+			;
 
 			// parse test
 			int test = Integer.parseInt(s.nextLine().replace("  Test: divisible by ", ""));
@@ -82,7 +95,7 @@ public class Main {
 			// parse monkey to throw if false
 			int falseCase = Integer.parseInt(s.nextLine().replace("    If false: throw to monkey ", ""));
 
-			Monkey m = new Monkey(new LinkedList<BigInteger>(items), operation, test, trueCase, falseCase);
+			Monkey m = new Monkey(new LinkedList<Long>(items), operation, test, trueCase, falseCase);
 			monkeys.add(m);
 			if (!s.hasNextLine()) {
 				break;
@@ -95,32 +108,35 @@ public class Main {
 
 @FunctionalInterface
 interface Operation {
-	BigInteger calculate(BigInteger old);
+	long calculate(long old);
 }
 
 class Monkey {
-	Queue<BigInteger> items;
+	Queue<Long> items;
 	Operation operation; // define using lambda
 	int test;
 	int trueMonkey;
 	int falseMonkey;
-	BigInteger numInspected;
+	long numInspected;
+	static long divisibleFactor = 1;
 
-	public Monkey(Queue<BigInteger> items, Operation operation, int test, int trueMonkey, int falseMonkey) {
+	public Monkey(Queue<Long> items, Operation operation, int test, int trueMonkey, int falseMonkey) {
 		this.items = items;
 		this.operation = operation;
 		this.test = test;
+		divisibleFactor *= test;
 		this.trueMonkey = trueMonkey;
 		this.falseMonkey = falseMonkey;
-		numInspected = BigInteger.ZERO;
+		numInspected = 0;
 	}
 
 	public static void throwItems(ArrayList<Monkey> monkeys, Monkey current) {
 		while (current.items.size() > 0) {
-			current.numInspected = current.numInspected.add(BigInteger.ONE);
-			BigInteger item = current.items.remove();
-			BigInteger newWorry = current.operation.calculate(item);
-			if (newWorry.mod(BigInteger.valueOf(current.test)).equals(BigInteger.ZERO))
+			current.numInspected = current.numInspected + 1;
+			long item = current.items.remove();
+			long newWorry = current.operation.calculate(item);
+			newWorry %= divisibleFactor;
+			if (newWorry % current.test == 0)
 				monkeys.get(current.trueMonkey).items.add(newWorry);
 			else
 				monkeys.get(current.falseMonkey).items.add(newWorry);
