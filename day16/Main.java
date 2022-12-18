@@ -3,6 +3,7 @@ package day16;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
@@ -31,39 +32,44 @@ public class Main {
 					valves.put(v.name, v);
 				}
 			}
+			// part 1
+			// System.out.println(getMaxPressure(valves.get("AA"), new ArrayList<>(),
+			// 30, 0));
 
-			System.out.println(getMaxPressure(valves.get("AA"), new ArrayList<>(), 30));
+			System.out.println(getMaxPressure(valves.get("AA"), new ArrayList<>(), 26,
+					1));
 		} catch (FileNotFoundException e) {
 			System.out.println(e.getMessage());
 		}
 	}
 
-	public static int getMaxPressure(Valve v, List<Valve> opened, int time) {
+	public static int getMaxPressure(Valve v, List<Valve> opened, int time, int otherPlayers) {
 		if (time == 0)
-			return 0;
+			return otherPlayers > 0 ? getMaxPressure(valves.get("AA"), opened, 26, otherPlayers - 1) : 0;
 		int maxPressure = 0;
 
-		Integer flow = DPStates.get(new State(v, opened, time));
-		if (flow != null && flow > 0) {
+		Integer flow = DPStates.get(new State(v, opened, time, otherPlayers));
+		if (flow != null) {
 			return flow;
 		}
 
 		if (!opened.contains(v) && v.flowRate > 0) {
-			List<Valve> tempOpened = new ArrayList<>(opened);
-			tempOpened.add(v);
+			opened.add(v);
+			Collections.sort(opened);
 			maxPressure = Math.max(maxPressure,
-					getMaxPressure(v, tempOpened, time - 1) + v.flowRate * (time - 1));
+					getMaxPressure(v, opened, time - 1, otherPlayers) + v.flowRate * (time - 1));
+			opened.remove(v);
 		}
 		for (String subValveNames : v.subValves) {
 			Valve subValve = valves.get(subValveNames);
-			maxPressure = Math.max(maxPressure, getMaxPressure(subValve, opened, time - 1));
+			maxPressure = Math.max(maxPressure, getMaxPressure(subValve, opened, time - 1, otherPlayers));
 		}
-		DPStates.put(new State(v, opened, time), maxPressure);
+		DPStates.put(new State(v, opened, time, otherPlayers), maxPressure);
 		return maxPressure;
 	}
 }
 
-class Valve {
+class Valve implements Comparable<Valve> {
 	String name;
 	int flowRate;
 	String[] subValves;
@@ -79,32 +85,44 @@ class Valve {
 		Valve v = (Valve) o;
 		return this.name.equals(v.name);
 	}
-}
-
-class State {
-	Valve v;
-	List<Valve> opened;
-	int time;
-
-	State(Valve v, List<Valve> opened, int time) {
-		this.v = v;
-		this.opened = opened;
-		this.time = time;
-	}
 
 	@Override
-	public boolean equals(Object o) {
-		State s = (State) o;
-		return v.equals(s.v) && opened.equals(s.opened) && (time == s.time);
-	}
-
-	@Override
-	public int hashCode() {
-		int hash = 1;
-		hash *= v.name.hashCode();
-		for (Valve v : opened) {
-			hash *= v.name.hashCode();
-		}
-		return hash + time * 30;
+	public int compareTo(Valve v) {
+		if (flowRate > v.flowRate)
+			return 1;
+		if (flowRate < v.flowRate)
+			return -1;
+		return 0;
 	}
 }
+
+record State(Valve v, List<Valve> opened, int time, int otherPlayers) {
+}
+
+// class State {
+// Valve v;
+// List<Valve> opened;
+// int time;
+// int otherPlayers;
+
+// State(Valve v, List<Valve> opened, int time, int otherPlayers) {
+// this.v = v;
+// this.opened = opened;
+// this.time = time;
+// this.otherPlayers = otherPlayers;
+// }
+
+// @Override
+// public boolean equals(Object o) {
+// State s = (State) o;
+// return v.equals(s.v) && opened.equals(s.opened) && (time == s.time);
+// }
+
+// @Override
+// public int hashCode() {
+// int hash = 1;
+// hash *= v.name.hashCode();
+// hash *= opened.hashCode();
+// return hash + time * 30 + otherPlayers;
+// }
+// }
