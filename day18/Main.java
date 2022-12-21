@@ -4,14 +4,15 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.Scanner;
 import java.util.stream.Stream;
 
 public class Main {
 	private static HashSet<Cube> cubes = new HashSet<>();
 	private static HashSet<Cube> freeSides = new HashSet<>();
-	private static HashSet<Cube> visitedCubes = new HashSet<>();
 	private static int[] mins;
 	private static int[] maxes;
 
@@ -25,12 +26,11 @@ public class Main {
 	};
 
 	public static void main(String... args) {
-		File f = new File("day18/test.txt");
-		// File f = new File("day18/input.txt");
+		// File f = new File("day18/test.txt");
+		File f = new File("day18/input.txt");
 		try (Scanner s = new Scanner(f)) {
 			mins = new int[] { Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE };
 			maxes = new int[] { Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE };
-			;
 			while (s.hasNextLine()) {
 				int[] coords = Stream.of(s.nextLine().split(",")).mapToInt(Integer::parseInt).toArray();
 				Cube c = new Cube(coords[0], coords[1], coords[2]);
@@ -43,12 +43,39 @@ public class Main {
 				maxes[2] = Math.max(coords[2], maxes[2]);
 				cubes.add(c);
 			}
+
+			// store all of the free sides in each cube
 			for (Cube c : cubes) {
 				freeSides.addAll(getFreeSides(c));
 			}
+
+			// dfs search to find open areas
+			List<HashSet<Cube>> cubeSets = new ArrayList<>();
 			while (freeSides.size() > 0) {
-				System.out.println(getSurfaceArea(freeSides.iterator().next()));
+				HashSet<Cube> connectedCubes = new HashSet<>();
+				getConnectedComponents(freeSides.iterator().next(), connectedCubes);
+				cubeSets.add(connectedCubes);
 			}
+
+			// remove the largest set, as it will be the exterior points
+			int largest = 0;
+			int index = 0;
+			for (int i = 0; i < cubeSets.size(); i++) {
+				if (cubeSets.get(i).size() > largest) {
+					largest = cubeSets.get(i).size();
+					index = i;
+				}
+			}
+			cubeSets.remove(index);
+
+			// merge enclosed areas into one set of coordinates
+			HashSet<Cube> mergedEnclosedAreas = new HashSet<>();
+			for (HashSet<Cube> enclosedArea : cubeSets) {
+				mergedEnclosedAreas.addAll(enclosedArea);
+			}
+
+			// look at all free areas adjacent to cubes, ignore if part of the enclosed sets
+			System.out.println(getSurfaceArea(mergedEnclosedAreas));
 		} catch (FileNotFoundException e) {
 			System.out.println(e.getMessage());
 		}
@@ -56,14 +83,6 @@ public class Main {
 
 	public static List<Cube> getFreeSides(Cube c) {
 		List<Cube> adjacentFree = new ArrayList<>();
-		int[][] offsets = {
-				{ 1, 0, 0 },
-				{ -1, 0, 0 },
-				{ 0, 1, 0 },
-				{ 0, -1, 0 },
-				{ 0, 0, 1 },
-				{ 0, 0, -1 }
-		};
 		Cube test = new Cube(c.x, c.y, c.z);
 		for (int[] offset : offsets) {
 			test.x += offset[0];
@@ -71,33 +90,25 @@ public class Main {
 			test.z += offset[2];
 			if (!cubes.contains(test)) {
 				adjacentFree.add(test);
+				c.adjacentFree.add(test);
 			}
 			test = new Cube(c.x, c.y, c.z);
 		}
 		return adjacentFree;
 	}
 
-	public static List<Cube> getNonVisitedAdjacentFree(Cube c) {
+	public static List<Cube> getNonVisitedAdjacentFree(Cube c, HashSet<Cube> visited) {
 		List<Cube> adjacentFree = new ArrayList<>();
-		int[][] offsets = {
-				{ 1, 0, 0 },
-				{ -1, 0, 0 },
-				{ 0, 1, 0 },
-				{ 0, -1, 0 },
-				{ 0, 0, 1 },
-				{ 0, 0, -1 }
-		};
-		Cube test = new Cube(c.x, c.y, c.z);
+		Cube test;
 		for (int[] offset : offsets) {
+			test = new Cube(c.x, c.y, c.z);
 			test.x += offset[0];
 			test.y += offset[1];
 			test.z += offset[2];
 			if (cubes.contains(test)) {
-				test = new Cube(c.x, c.y, c.z);
 				continue;
 			}
-			if (visitedCubes.contains(test)) {
-				test = new Cube(c.x, c.y, c.x);
+			if (visited.contains(test)) {
 				continue;
 			}
 			if (test.x >= mins[0] - 1 &&
@@ -105,28 +116,41 @@ public class Main {
 					test.y >= mins[1] - 1 &&
 					test.y <= maxes[1] + 1 &&
 					test.z >= mins[2] - 1 &&
-					test.z <= maxes[2] + 1)
+					test.z <= maxes[2] + 1) {
 				adjacentFree.add(test);
-
-			test = new Cube(c.x, c.y, c.z);
+			}
 		}
 		return adjacentFree;
 	}
 
-	public static int getSurfaceArea(Cube c) {
-		if (visitedCubes.contains(c))
-			return 1;
-		visitedCubes.add(c);
-		freeSides.remove(c);
-		int sum = 0;
-		for (Cube adjacentFree : getNonVisitedAdjacentFree(c)) {
-			sum += getSurfaceArea(adjacentFree);
+	public static void getConnectedComponents(Cube c, HashSet<Cube> visited) {
+		Queue<Cube> nextCubes = new LinkedList<>();
+		nextCubes.add(c);
+		while (nextCubes.size() > 0) {
+			Cube next = nextCubes.remove();
+			if (visited.contains(next))
+				continue;
+			visited.add(next);
+			freeSides.remove(next);
+			nextCubes.addAll(getNonVisitedAdjacentFree(next, visited));
 		}
-		return sum;
+	}
+
+	public static int getSurfaceArea(HashSet<Cube> enclosedAreas) {
+		int surfaceArea = 0;
+		for (Cube c : cubes) {
+			for (Cube adj : c.adjacentFree) {
+				if (!enclosedAreas.contains(adj)) {
+					surfaceArea++;
+				}
+			}
+		}
+		return surfaceArea;
 	}
 
 	static class Cube {
 		int x, y, z;
+		List<Cube> adjacentFree = new ArrayList<>();
 
 		Cube(int x, int y, int z) {
 			this.x = x;
