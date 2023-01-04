@@ -2,6 +2,7 @@ package day21;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.regex.Matcher;
@@ -14,7 +15,8 @@ public class Main {
 		File f = new File("day21/input.txt");
 		try (Scanner s = new Scanner(f)) {
 			Monkey root = parseInput(s);
-			System.out.println(getResult(root));
+			resolveKnownValue(root);
+			System.out.println(determineUnknownValue(root, BigInteger.ZERO));
 		} catch (FileNotFoundException e) {
 			System.out.println(e.getMessage());
 		}
@@ -31,7 +33,7 @@ public class Main {
 		Monkey root = null;
 		while (s.hasNextLine()) {
 			String line = s.nextLine();
-			Matcher operationMatcher = Pattern.compile("(\\w+): (\\w+) ([\\+\\*\\/-]) (\\w+)").matcher(line);
+			Matcher operationMatcher = Pattern.compile("(\\w+): (\\w+) ([=\\+\\*\\/-]) (\\w+)").matcher(line);
 			if (operationMatcher.find()) { // the monkey is shouting an operation
 				String label = operationMatcher.group(1);
 				String m1Label = operationMatcher.group(2);
@@ -77,7 +79,9 @@ public class Main {
 				}
 			} else { // the monkey is shouting a value
 				String label = line.substring(0, 4);
-				int result = Integer.parseInt(line.substring(6));
+				BigInteger result = BigInteger.valueOf(Integer.parseInt(line.substring(6)));
+				if (label.equals("humn"))
+					result = null;
 
 				// retrieve this monkey if it has been parsed already
 				Monkey m = null;
@@ -100,23 +104,57 @@ public class Main {
 		return root;
 	}
 
-	public static long getResult(Monkey monkey) throws Exception {
+	public static void resolveKnownValue(Monkey monkey) {
+		if (monkey.label.equals("humn"))
+			return;
 		if (monkey.result != null)
-			return monkey.result;
-		return switch (monkey.operator) {
-			case '+' -> getResult(monkey.m1) + getResult(monkey.m2);
-			case '-' -> getResult(monkey.m1) - getResult(monkey.m2);
-			case '*' -> getResult(monkey.m1) * getResult(monkey.m2);
-			case '/' -> getResult(monkey.m1) / getResult(monkey.m2);
-			default -> throw new Exception("missing operator on monkey");
+			return;
+		resolveKnownValue(monkey.m1);
+		resolveKnownValue(monkey.m2);
+		if (monkey.m1.result == null || monkey.m2.result == null)
+			return;
+		monkey.result = switch (monkey.operator) {
+			case '+' -> monkey.m1.result.add(monkey.m2.result);
+			case '-' -> monkey.m1.result.subtract(monkey.m2.result);
+			case '*' -> monkey.m1.result.multiply(monkey.m2.result);
+			case '/' -> monkey.m1.result.divide(monkey.m2.result);
+			default -> null;
 		};
+	}
+
+	public static BigInteger determineUnknownValue(Monkey monkey, BigInteger shoutDetermination) {
+		if (monkey.label.equals("humn")) {
+			return shoutDetermination;
+		}
+
+		Monkey nullMonkey;
+		Monkey nonNullMonkey;
+		if (monkey.m1.result == null) {
+			nullMonkey = monkey.m1;
+			nonNullMonkey = monkey.m2;
+		} else {
+			nullMonkey = monkey.m2;
+			nonNullMonkey = monkey.m1;
+		}
+
+		// reverse the operator to solve for what the next level should be
+		BigInteger newShoutDetermination = switch (monkey.operator) {
+			case '+' -> shoutDetermination.subtract(nonNullMonkey.result);
+			case '-' -> shoutDetermination.add(nonNullMonkey.result);
+			case '*' -> shoutDetermination.divide(nonNullMonkey.result);
+			case '/' -> shoutDetermination.multiply(nonNullMonkey.result);
+			case '=' -> nonNullMonkey.result;
+			default -> BigInteger.ZERO;
+		};
+
+		return determineUnknownValue(nullMonkey, newShoutDetermination);
 	}
 
 	private static class Monkey {
 		Monkey m1, m2;
 		char operator;
 
-		Integer result;
+		BigInteger result;
 		String label;
 
 		Monkey(String label, Monkey m1, Monkey m2, char operator) {
@@ -126,7 +164,7 @@ public class Main {
 			this.operator = operator;
 		}
 
-		Monkey(String label, int result) {
+		Monkey(String label, BigInteger result) {
 			this.label = label;
 			this.result = result;
 		}
