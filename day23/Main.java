@@ -21,10 +21,11 @@ public class Main {
 			System.out.println(e.getMessage());
 		}
 
-		for (int i = 0; i < 10; i++) {
-			performRound(i % 4);
+		int i = 0;
+		while (performRound(i % 4)) {
+			i++;
 		}
-		System.out.println(countEmptyTiles());
+		System.out.println(i + 1);
 	}
 
 	private static void parseInput(Scanner s) {
@@ -40,12 +41,9 @@ public class Main {
 		}
 	}
 
-	private static void performRound(int startingDirection) throws Exception {
+	private static boolean performRound(int startingDirection) throws Exception {
 		proposeMoves(startingDirection);
-		updatePositions();
-
-		// printBoard();
-		// System.out.println();
+		return updatePositions();
 	}
 
 
@@ -128,14 +126,17 @@ public class Main {
 		}
 	}
 
-	private static void updatePositions() {
+	private static boolean updatePositions() {
 		// moves all elves to proposed locations
+		boolean updated = false;
 		for (Map.Entry<Elf, Elf> entry : proposals.entrySet()) {
 			Elf e = entry.getValue();
 			Elf prop = entry.getKey();
 			elves.remove(e);
 			elves.add(prop);
+			updated = true;
 		}
+		return updated;
 	}
 
 	private static int countEmptyTiles() {
